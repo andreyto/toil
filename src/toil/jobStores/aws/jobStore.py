@@ -920,9 +920,8 @@ class AWSJobStore(AbstractJobStore):
                 version = strOrNone(item['version'])
                 encrypted = strict_bool(encrypted)
                 content, numContentChunks = cls.attributesToBinary(item)
-                sseKeyPath = cls.outer.sseKeyPath
-                if encrypted and sseKeyPath and content is not None:
-                    content = encryption.decrypt(content, sseKeyPath)
+                if encrypted and cls.outer.sseKeyPath and content is not None:
+                    content = encryption.decrypt(content, cls.outer.sseKeyPath)
 
                 self = cls(fileID=item.name, ownerID=ownerID, encrypted=encrypted, version=version,
                            content=content, numContentChunks=numContentChunks)
@@ -942,9 +941,8 @@ class AWSJobStore(AbstractJobStore):
                 attributes = {}
             else:
                 content = self.content
-                sseKeyPath = self.outer.sseKeyPath
-                if self.encrypted and sseKeyPath:
-                    content = encryption.encrypt(content, sseKeyPath)
+                if self.encrypted and self.outer.sseKeyPath:
+                    content = encryption.encrypt(content, self.outer.sseKeyPath)
                 attributes = self.binaryToAttributes(content)
                 numChunks = len(attributes)
             attributes.update(dict(ownerID=self.ownerID,
