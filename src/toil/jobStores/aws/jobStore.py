@@ -213,6 +213,10 @@ class AWSJobStore(AbstractJobStore):
             self._registered = True
 
     @property
+    def sse(self):
+        return self.config.sse
+
+    @property
     def sseKeyPath(self):
         return self.config.sseKey
 
@@ -849,7 +853,7 @@ class AWSJobStore(AbstractJobStore):
 
         @classmethod
         def create(cls, ownerID):
-            return cls(str(uuid.uuid4()), ownerID, encrypted=cls.outer.sseKeyPath is not None)
+            return cls(str(uuid.uuid4()), ownerID, encrypted=cls.outer.sse)
 
         @classmethod
         def presenceIndicator(cls):
@@ -877,7 +881,7 @@ class AWSJobStore(AbstractJobStore):
         def loadOrCreate(cls, jobStoreFileID, ownerID, encrypted):
             self = cls.load(jobStoreFileID)
             if encrypted is None:
-                encrypted = cls.outer.sseKeyPath is not None
+                encrypted = cls.outer.sse is not None
             if self is None:
                 self = cls(jobStoreFileID, ownerID, encrypted=encrypted)
             else:
@@ -922,12 +926,10 @@ class AWSJobStore(AbstractJobStore):
                 version = strOrNone(item['version'])
                 encrypted = strict_bool(encrypted)
                 content, numContentChunks = cls.attributesToBinary(item)
-                if encrypted:
-                    sseKeyPath = cls.outer.sseKeyPath
-                    if sseKeyPath is None:
-                        raise AssertionError('Content is encrypted but no key was provided.')
-                    if content is not None:
-                        content = encryption.decrypt(content, sseKeyPath)
+                sseKeyPath = cls.outer.sseKeyPath
+                if encrypted and sseKeyPath and content is not None:
+                    content = encryption.decrypt(content, sseKeyPath)
+
                 self = cls(fileID=item.name, ownerID=ownerID, encrypted=encrypted, version=version,
                            content=content, numContentChunks=numContentChunks)
                 return self
@@ -946,10 +948,8 @@ class AWSJobStore(AbstractJobStore):
                 attributes = {}
             else:
                 content = self.content
-                if self.encrypted:
-                    sseKeyPath = self.outer.sseKeyPath
-                    if sseKeyPath is None:
-                        raise AssertionError('Encryption requested but no key was provided.')
+                sseKeyPath = self.outer.sseKeyPath
+                if self.encrypted and sseKeyPath:
                     content = encryption.encrypt(content, sseKeyPath)
                 attributes = self.binaryToAttributes(content)
                 numChunks = len(attributes)
@@ -1159,7 +1159,7 @@ class AWSJobStore(AbstractJobStore):
 
         def _copyKey(self, srcKey, dstBucketName, dstKeyName, headers=None):
             headers = headers or {}
-            assert srcKey.size is not None 
+            assert srcKey.size is not None
             if srcKey.size > self.outer.partSize:
                 return copyKeyMultipart(srcKey=srcKey,
                                         dstBucketName=dstBucketName,
@@ -1234,9 +1234,7 @@ class AWSJobStore(AbstractJobStore):
         def _s3EncryptionHeaders(self):
             sseKeyPath = self.outer.sseKeyPath
             if self.encrypted:
-                if sseKeyPath is None:
-                    raise AssertionError('Content is encrypted but no key was provided.')
-                else:
+                if sseKeyPath:
                     with open(sseKeyPath) as f:
                         sseKey = f.read()
                     assert len(sseKey) == 32
@@ -1245,6 +1243,8 @@ class AWSJobStore(AbstractJobStore):
                     return {'x-amz-server-side-encryption-customer-algorithm': 'AES256',
                             'x-amz-server-side-encryption-customer-key': encodedSseKey,
                             'x-amz-server-side-encryption-customer-key-md5': encodedSseKeyMd5}
+                else:
+                    return {'x-amz-server-side-encryption': 'AES256'}
             else:
                 return {}
 
