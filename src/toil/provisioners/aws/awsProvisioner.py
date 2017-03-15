@@ -178,6 +178,7 @@ class AWSProvisioner(AbstractProvisioner):
     def _sshInstance(cls, nodeIP, *args, **kwargs):
         # returns the output from the command
         kwargs['collectStdout'] = True
+        kwargs['sshOptions'] = ['-oUserKnownHostsFile=/dev/null', '-oStrictHostKeyChecking=no']
         return cls._coreSSH(nodeIP, *args, **kwargs)
 
     @classmethod
@@ -185,7 +186,7 @@ class AWSProvisioner(AbstractProvisioner):
         """
         kwargs: input, tty, appliance, collectStdout, sshOptions
         """
-        commandTokens = ['ssh', '-o', "StrictHostKeyChecking=no", '-t']
+        commandTokens = ['ssh', '-t']
         sshOptions = kwargs.pop('sshOptions', None)
         if sshOptions:
             # add specified options to ssh command
@@ -226,7 +227,6 @@ class AWSProvisioner(AbstractProvisioner):
 
     @classmethod
     def _rsyncNode(cls, ip, args, applianceName='toil_leader'):
-        sshCommand = 'ssh -o "StrictHostKeyChecking=no"'  # Skip host key checking
         remoteRsync = "docker exec -i %s rsync" % applianceName  # Access rsync inside appliance
         parsedArgs = []
         hostInserted = False
@@ -240,7 +240,7 @@ class AWSProvisioner(AbstractProvisioner):
             parsedArgs.append(i)
         if not hostInserted:
             raise ValueError("No remote host found in argument list")
-        command = ['rsync', '-e', sshCommand, '--rsync-path', remoteRsync]
+        command = ['rsync', '--rsync-path', remoteRsync]
         logger.debug("Running %r.", command + parsedArgs)
 
         return subprocess.check_call(command + parsedArgs)
