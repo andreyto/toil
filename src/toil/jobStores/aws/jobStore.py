@@ -32,15 +32,9 @@ from six import iteritems
 from bd2k.util import strict_bool
 from bd2k.util.exceptions import panic
 from bd2k.util.objects import InnerClass
-from boto.sdb.domain import Domain
-from boto.s3.bucket import Bucket
-from boto.s3.connection import S3Connection
-from boto.sdb.connection import SDBConnection
-from boto.sdb.item import Item
 import boto.s3
 import boto.sdb
 from boto.exception import S3CreateError
-from boto.s3.key import Key
 from boto.exception import SDBResponseError, S3ResponseError
 from concurrent.futures import ThreadPoolExecutor
 
@@ -677,8 +671,8 @@ class AWSJobStore(AbstractJobStore):
             # https://github.com/BD2KGenomics/toil/issues/955
             # https://github.com/BD2KGenomics/toil/issues/995
             # https://github.com/BD2KGenomics/toil/issues/1093
-            return (isinstance(e, (S3CreateError, S3ResponseError))
-                    and e.error_code in ('BucketAlreadyOwnedByYou', 'OperationAborted'))
+            return (isinstance(e, (S3CreateError, S3ResponseError)) and
+                    e.error_code in ('BucketAlreadyOwnedByYou', 'OperationAborted'))
 
         bucketExisted = True
         for attempt in retry_s3(predicate=bucket_creation_pending):
