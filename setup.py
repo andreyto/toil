@@ -14,6 +14,7 @@
 
 from setuptools import find_packages, setup
 import sys
+import warnings
 
 def runSetup():
     """
@@ -80,7 +81,7 @@ def runSetup():
         all_reqs.remove(htcondor)
 
     if not sys.version_info[0] == 2:
-        raise RuntimeError("Toil currently requires Python 2, but we're working on adding Python 3 support (#1780)")
+        warnings.warn("Toil currently requires Python 2, but we're working on adding Python 3 support (#1780)")
 
     setup(
         name='toil',
