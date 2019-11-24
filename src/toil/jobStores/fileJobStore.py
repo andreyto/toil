@@ -337,11 +337,13 @@ class FileJobStore(AbstractJobStore):
 
     def readFile(self, jobStoreFileID, localFilePath, symlink=False):
         self._checkJobStoreFileID(jobStoreFileID)
-        jobStoreFilePath = self._getAbsPath(jobStoreFileID)
+        jobStoreFilePath = os.path.realpath(self._getAbsPath(jobStoreFileID))
         localDirPath = os.path.dirname(localFilePath)
+        doCopy = True
         # If local file would end up on same file system as the one hosting this job store ...
         if os.stat(jobStoreFilePath).st_dev == os.stat(localDirPath).st_dev:
             # ... we can hard-link the file, ...
+            doCopy = False
             if symlink:
                 try:
                     os.symlink(jobStoreFilePath, localFilePath)
@@ -351,9 +353,12 @@ class FileJobStore(AbstractJobStore):
                         os.unlink(localFilePath)
                         # It would be very unlikely to fail again for same reason but possible
                         # nonetheless in which case we should just give up.
-                        os.symlink(jobStoreFilePath, localFilePath)
+                        try:
+                            os.symlink(jobStoreFilePath, localFilePath)
+                        except:
+                            doCopy = True
                     else:
-                        raise
+                        doCopy = True
             else:
                 try:
                     os.link(jobStoreFilePath, localFilePath)
@@ -363,10 +368,13 @@ class FileJobStore(AbstractJobStore):
                         os.unlink(localFilePath)
                         # It would be very unlikely to fail again for same reason but possible
                         # nonetheless in which case we should just give up.
-                        os.link(jobStoreFilePath, localFilePath)
+                        try:
+                            os.link(jobStoreFilePath, localFilePath)
+                        except:
+                            doCopy = True
                     else:
-                        raise
-        else:
+                        doCopy = True
+        if doCopy:
             # ... otherwise we have to copy it.
             shutil.copyfile(jobStoreFilePath, localFilePath)
 
